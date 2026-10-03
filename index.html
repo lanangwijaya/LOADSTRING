@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NANG Encoder</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui;background:#0d1117;color:#e6edf3;padding:20px;font-size:14px}
+.w{max-width:800px;margin:0 auto}
+h1{font-size:20px;color:#58a6ff;margin-bottom:12px}
+label{display:block;font-size:11px;color:#8b949e;margin:14px 0 6px;font-weight:600;text-transform:uppercase}
+textarea,input{width:100%;padding:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-family:monospace;font-size:12px;outline:none}
+textarea:focus,input:focus{border-color:#58a6ff}
+#script{min-height:160px}#ls{min-height:60px;background:#0a0d12;color:#7ee787;word-break:break-all}
+#dec{min-height:160px}
+button{padding:10px 18px;background:#238636;border:none;border-radius:6px;color:#fff;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px}
+button:hover{background:#2ea043}button.s{background:#21262d}button.s:hover{background:#30363d}button.b{background:#1f6feb}
+button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
+.st{font-size:12px;color:#7ee787;opacity:0;transition:.2s;flex:1}
+.st.show{opacity:1}
+.tabs{display:flex;gap:6px;margin-bottom:16px}
+.tab{padding:8px 16px;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#8b949e;cursor:pointer;font-family:inherit;font-size:13px}
+.tab.a{background:#1f6feb;color:#fff;border-color:#1f6feb}
+.hide{display:none}
+.info{margin-top:12px;padding:10px 12px;background:#161b22;border-left:3px solid #58a6ff;border-radius:4px;font-size:12px;color:#8b949e;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="w">
+<h1>NANG Encoder</h1>
+<div class="tabs">
+  <button class="tab a" data-t="e">Encode</button>
+  <button class="tab" data-t="d">Decode</button>
+</div>
+
+<div id="pe">
+<label>Script</label>
+<textarea id="script" placeholder="paste script..."></textarea>
+<label>Sandi</label>
+<input id="pw" placeholder="sandi...">
+<div class="row">
+  <button id="be" onclick="enc()">Encode</button>
+  <button class="s" onclick="clr()">Clear</button>
+  <span id="s1" class="st"></span>
+</div>
+<label>Loadstring</label>
+<textarea id="ls" readonly placeholder="..."></textarea>
+<div class="row">
+  <button class="b" onclick="cp('ls','s2')">Copy loadstring</button>
+  <span id="s2" class="st"></span>
+</div>
+<div class="info">Copy → paste ke Delta → execute → popup sandi → ketik → jalan.</div>
+</div>
+
+<div id="pd" class="hide">
+<label>Loadstring</label>
+<textarea id="prot" placeholder='loadstring(game:HttpGet("..."))()'></textarea>
+<label>Sandi</label>
+<input id="dpw" placeholder="sandi...">
+<div class="row">
+  <button class="b" onclick="dec()">Decode</button>
+  <button class="s" onclick="clrd()">Clear</button>
+  <span id="s3" class="st"></span>
+</div>
+<label>Script asli</label>
+<textarea id="dec" placeholder="..."></textarea>
+<div class="row">
+  <button class="s" onclick="cp('dec','s4')">Copy</button>
+  <button class="s" onclick="toE()">Kirim ke Encode</button>
+  <span id="s4" class="st"></span>
+</div>
+</div>
+</div>
+
+<script>
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('a'));
+  t.classList.add('a');
+  document.getElementById('pe').classList.toggle('hide',t.dataset.t!=='e');
+  document.getElementById('pd').classList.toggle('hide',t.dataset.t!=='d');
+});
+
+function xor(b,k){const o=new Uint8Array(b.length);for(let i=0;i<b.length;i++)o[i]=b[i]^k[i%k.length];return o}
+function b64e(b){let s='';for(let i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s)}
+function b64d(s){const x=atob(s),o=new Uint8Array(x.length);for(let i=0;i<x.length;i++)o[i]=x.charCodeAt(i);return o}
+function hp(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return h.toString(16)}
+
+function rt(P,H){return `local P="${P}"local H="${H}"
+local function b(s)local c="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"local m={}for i=1,#c do m[c:sub(i,i)]=i-1 end local o={}for i=1,#s,4 do local a,b,c,d=m[s:sub(i,i)]or 0,m[s:sub(i+1,i+1)]or 0,m[s:sub(i+2,i+2)]or 0,m[s:sub(i+3,i+3)]or 0 local v=a*262144+b*4096+c*64+d o[#o+1]=string.char(math.floor(v/65536)%256)if s:sub(i+2,i+2)~="="then o[#o+1]=string.char(math.floor(v/256)%256)end if s:sub(i+3,i+3)~="="then o[#o+1]=string.char(v%256)end end return table.concat(o)end
+local function x(d,k)if#k<1 then return nil end local o={}for i=1,#d do o[i]=string.char(bit32.bxor(string.byte(d,i),string.byte(k,((i-1)%#k)+1)))end return table.concat(o)end
+local function h(s)local v=5381 for i=1,#s do v=bit32.band(bit32.lshift(v,5)+v+string.byte(s,i),0xFFFFFFFF)end return string.format("%x",v)end
+local g=Instance.new("ScreenGui",game:GetService("CoreGui"))g.Name="NP"g.ResetOnSpawn=false g.DisplayOrder=9999
+local f=Instance.new("Frame",g)f.AnchorPoint=Vector2.new(.5,.5)f.Position=UDim2.new(.5,0,.5,0)f.Size=UDim2.new(0,320,0,140)f.BackgroundColor3=Color3.fromRGB(20,24,30)f.BorderSizePixel=0 Instance.new("UICorner",f).CornerRadius=UDim.new(0,12)
+local st=Instance.new("UIStroke",f)st.Color=Color3.fromRGB(90,160,255)st.Thickness=1.5
+local t=Instance.new("TextLabel",f)t.Size=UDim2.new(1,-20,0,24)t.Position=UDim2.new(0,10,0,10)t.BackgroundTransparency=1 t.Text="SCRIPT LOCKED"t.TextColor3=Color3.fromRGB(120,200,255)t.Font=Enum.Font.GothamBold t.TextSize=13 t.TextXAlignment=Enum.TextXAlignment.Left
+local sb=Instance.new("TextLabel",f)sb.Size=UDim2.new(1,-20,0,16)sb.Position=UDim2.new(0,10,0,34)sb.BackgroundTransparency=1 sb.Text="sandi..."sb.TextColor3=Color3.fromRGB(160,170,180)sb.Font=Enum.Font.Gotham sb.TextSize=10 sb.TextXAlignment=Enum.TextXAlignment.Left
+local i=Instance.new("TextBox",f)i.Size=UDim2.new(1,-20,0,32)i.Position=UDim2.new(0,10,0,56)i.BackgroundColor3=Color3.fromRGB(14,18,22)i.BorderSizePixel=0 i.PlaceholderText="password..."i.Text=""i.TextColor3=Color3.fromRGB(230,235,240)i.PlaceholderColor3=Color3.fromRGB(90,100,110)i.Font=Enum.Font.Code i.TextSize=12 i.ClearTextOnFocus=false Instance.new("UICorner",i).CornerRadius=UDim.new(0,6)
+local bt=Instance.new("TextButton",f)bt.Size=UDim2.new(1,-20,0,28)bt.Position=UDim2.new(0,10,0,100)bt.BackgroundColor3=Color3.fromRGB(40,90,160)bt.Text="UNLOCK"bt.TextColor3=Color3.fromRGB(255,255,255)bt.Font=Enum.Font.GothamBold bt.TextSize=12 Instance.new("UICorner",bt).CornerRadius=UDim.new(0,6)
+local n=0 local d=false
+local function go()if d then return end local p=tostring(i.Text)if p==""then sb.Text="kosong"return end if h(p)==H then local dd=x(b(P),p)if dd and dd:sub(1,8)=="--NANG--"then d=true g:Destroy()local fn,er=loadstring(dd:sub(9))if fn then pcall(fn)end return end end n=n+1 sb.Text="salah "..n.."/3"sb.TextColor3=Color3.fromRGB(220,90,90)i.Text=""if n>=3 then d=true g:Destroy()end end
+bt.MouseButton1Click:Connect(go)i.FocusLost:Connect(function(e)if e then go()end end)`}
+
+// multi-host upload
+const HOSTS=[
+  {n:'paste.rs',f:async t=>{const r=await fetch('https://paste.rs/',{method:'POST',body:t});if(!r.ok)throw 0;return(await r.text()).trim()}},
+  {n:'0x0.st',f:async t=>{const fd=new FormData();fd.append('file',new Blob([t],{type:'text/plain'}),'n.lua');const r=await fetch('https://0x0.st',{method:'POST',body:fd});if(!r.ok)throw 0;return(await r.text()).trim()}},
+  {n:'dpaste.org',f:async t=>{const fd=new FormData();fd.append('content',t);fd.append('format','url');fd.append('expires','31536000');const r=await fetch('https://dpaste.org/api/',{method:'POST',body:fd});if(!r.ok)throw 0;let u=(await r.text()).trim();if(!u.endsWith('/raw'))u+='/raw';return u}},
+  {n:'dpaste.com',f:async t=>{const fd=new FormData();fd.append('content',t);fd.append('expiry_days','365');const r=await fetch('https://dpaste.com/api/v2/',{method:'POST',body:fd});if(!r.ok)throw 0;let u=(await r.text()).trim();if(!u.endsWith('.txt'))u+='.txt';return u}},
+];
+
+async function up(t){
+  const errs=[];
+  for(const h of HOSTS){
+    try{
+      document.getElementById('s1').textContent='trying '+h.n+'...';
+      const u=await h.f(t);
+      if(u&&u.startsWith('http'))return u;
+      errs.push(h.n+':bad');
+    }catch(e){errs.push(h.n+':fail')}
+  }
+  throw new Error('semua host gagal: '+errs.join(', '));
+}
+
+async function enc(){
+  const s=document.getElementById('script').value,p=document.getElementById('pw').value;
+  if(!s.trim())return fl('s1','script kosong','#f0883e');
+  if(!p)return fl('s1','sandi kosong','#f0883e');
+  const b=document.getElementById('be');
+  b.disabled=true;b.textContent='Uploading...';
+  try{
+    const pl='--NANG--'+s;
+    const enc=xor(new TextEncoder().encode(pl),new TextEncoder().encode(p));
+    const b64=b64e(enc);
+    const code=rt(b64,hp(p));
+    const url=await up(code);
+    const out=`loadstring(game:HttpGet("${url}"))()`;
+    document.getElementById('ls').value=out;
+    fl('s1','✓ '+out.length+' chars','#7ee787');
+  }catch(e){fl('s1','✗ '+e.message,'#f85149')}
+  b.disabled=false;b.textContent='Encode';
+}
+
+async function dec(){
+  const pr=document.getElementById('prot').value.trim(),p=document.getElementById('dpw').value;
+  if(!pr)return fl('s3','paste dulu','#f0883e');
+  if(!p)return fl('s3','sandi kosong','#f0883e');
+  const m=pr.match(/HttpGet\(\s*["']([^"']+)["']\s*\)/);
+  if(!m)return fl('s3','URL nggak ketemu','#f85149');
+  fl('s3','fetching...','#58a6ff');
+  try{
+    const r=await fetch(m[1]);if(!r.ok)throw new Error('HTTP '+r.status);
+    const code=await r.text();
+    const mp=code.match(/P\s*=\s*"([A-Za-z0-9+/=]+)"/);
+    if(!mp)return fl('s3','payload rusak','#f85149');
+    const dd=xor(b64d(mp[1]),new TextEncoder().encode(p));
+    const ss=new TextDecoder().decode(dd);
+    if(ss.slice(0,8)!=='--NANG--')return fl('s3','sandi salah','#f85149');
+    document.getElementById('dec').value=ss.slice(8);
+    fl('s3','✓ ok','#7ee787');
+  }catch(e){fl('s3','✗ '+e.message,'#f85149')}
+}
+
+function clr(){['script','pw','ls'].forEach(x=>document.getElementById(x).value='')}
+function clrd(){['prot','dpw','dec'].forEach(x=>document.getElementById(x).value='')}
+function cp(id,s){const v=document.getElementById(id).value;if(!v)return;navigator.clipboard.writeText(v).then(()=>fl(s,'✓ copied','#7ee787'))}
+function toE(){const v=document.getElementById('dec').value;if(!v)return fl('s4','decode dulu','#f0883e');document.getElementById('script').value=v;document.getElementById('pw').value=document.getElementById('dpw').value;document.querySelector('[data-t="e"]').click();fl('s1','✓ siap edit','#7ee787')}
+function fl(id,m,c){const e=document.getElementById(id);e.textContent=m;e.style.color=c||'#7ee787';e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2500)}
+</script>
+</body>
+</html>
